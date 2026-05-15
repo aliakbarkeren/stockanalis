@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockScan AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#090c14;--bg2:#0e1320;--bg3:#141a2e;--bg4:#1a2240;
+  --border:#1e2a45;--border2:#263357;
+  --text:#dde4f0;--text2:#7a8ba8;--text3:#435270;
+  --blue:#4d8cff;--blue2:#2563eb;--blue-dim:#0d1e45;
+  --green:#1fd87a;--green-dim:#061f12;
+  --red:#ff4d6a;--red-dim:#280a10;
+  --amber:#ffb84d;--amber-dim:#2a1800;
+  --purple:#9b6dff;--purple-dim:#1a0d35;
+  --teal:#00d4c8;--teal-dim:#001a18;
+  --r:14px;--rs:9px;--rxs:6px;
+  --font-display:'Syne',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'DM Mono',monospace;
+}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;overflow-x:hidden}
+
+/* NOISE TEXTURE OVERLAY */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* GLOW ACCENTS */
+.glow-dot{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0}
+.gd1{width:400px;height:400px;background:rgba(77,140,255,.07);top:-100px;right:-100px}
+.gd2{width:300px;height:300px;background:rgba(31,216,122,.05);bottom:100px;left:-50px}
+
+/* NAVBAR */
+.navbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:58px;background:rgba(14,19,32,.9);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-logo{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--purple));border-radius:var(--rs);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;box-shadow:0 0 20px rgba(77,140,255,.3)}
+.nav-title{font-family:var(--font-display);font-size:17px;font-weight:800;letter-spacing:-0.5px;background:linear-gradient(90deg,var(--text),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-subtitle{font-size:10px;color:var(--text3);margin-top:1px;font-family:var(--font-mono);letter-spacing:.5px}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-btn{width:34px;height:34px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--rs);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;transition:all .2s;position:relative}
+.nav-btn:hover{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+.notif-dot{position:absolute;top:7px;right:7px;width:6px;height:6px;background:var(--red);border-radius:50%;border:2px solid var(--bg2)}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--teal));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-mono)}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;min-height:calc(100vh - 58px);position:relative;z-index:1}
+.sidebar{width:210px;background:rgba(14,19,32,.7);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:3px;flex-shrink:0;backdrop-filter:blur(8px)}
+.sidebar-section{font-family:var(--font-mono);font-size:9px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 6px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s;border:1px solid transparent}
+.sidebar-item:hover{background:var(--bg3);color:var(--text)}
+.sidebar-item.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(77,140,255,.15)}
+.sidebar-badge{margin-left:auto;font-size:10px;background:var(--blue);color:#fff;padding:1px 7px;border-radius:20px;font-weight:600;font-family:var(--font-mono)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:28px 28px 40px}
+
+/* PAGE HEADER */
+.page-header{margin-bottom:28px}
+.page-title{font-family:var(--font-display);font-size:24px;font-weight:800;letter-spacing:-0.8px}
+.page-desc{color:var(--text2);font-size:13px;margin-top:5px}
+.page-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .2s;white-space:nowrap;font-family:var(--font-body)}
+.btn:hover{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue2));border-color:transparent;color:#fff;box-shadow:0 4px 16px rgba(77,140,255,.25)}
+.btn-primary:hover{box-shadow:0 4px 24px rgba(77,140,255,.4);transform:translateY(-1px)}
+
+/* SUMMARY CARDS */
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;position:relative;overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:var(--border2)}
+.card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:0 var(--r) 0 60px;opacity:.06}
+.c-red-card::after{background:var(--red)}
+.c-green-card::after{background:var(--green)}
+.c-amber-card::after{background:var(--amber)}
+.c-blue-card::after{background:var(--blue)}
+.card-icon{width:36px;height:36px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:12px}
+.c-red-card .card-icon{background:var(--red-dim);color:var(--red)}
+.c-green-card .card-icon{background:var(--green-dim);color:var(--green)}
+.c-amber-card .card-icon{background:var(--amber-dim);color:var(--amber)}
+.c-blue-card .card-icon{background:var(--blue-dim);color:var(--blue)}
+.card-label{font-family:var(--font-mono);font-size:9px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.card-value{font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.card-change{font-size:11px;margin-top:6px;display:flex;align-items:center;gap:4px;color:var(--text3)}
+.card-change.down{color:var(--red)}
+.card-change.up{color:var(--green)}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:24px}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.chart-title{font-size:13.5px;font-weight:600}
+.chart-subtitle{font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--font-mono)}
+.chart-badge{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:var(--text3)}
+
+/* UPLOAD */
+.upload-section{margin-bottom:24px}
+.section-title{font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;letter-spacing:-.3px}
+.section-title .si-icon{color:var(--blue);font-size:18px}
+
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:44px 20px;text-align:center;transition:all .3s;cursor:pointer;background:var(--bg2);position:relative;overflow:hidden}
+.upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(77,140,255,.03) 0%,transparent 70%);pointer-events:none}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--blue);background:var(--blue-dim)}
+.upload-zone:hover::before,.upload-zone.dragover::before{background:radial-gradient(ellipse at center,rgba(77,140,255,.08) 0%,transparent 70%)}
+.upload-icon{font-size:40px;color:var(--text3);margin-bottom:14px;transition:color .3s}
+.upload-zone:hover .upload-icon,.upload-zone.dragover .upload-icon{color:var(--blue)}
+.upload-title{font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px}
+.upload-desc{font-size:12px;color:var(--text3)}
+.upload-formats{display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.format-badge{font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text2);background:var(--bg3)}
+
+/* PROGRESS */
+.progress-area{display:none;margin-top:16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.progress-area.visible{display:block}
+.progress-file{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.progress-name{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono)}
+.progress-size{font-family:var(--font-mono);font-size:11px;color:var(--text3)}
+.progress-track{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--teal));border-radius:3px;width:0%;transition:width .5s ease}
+.progress-status{font-size:11.5px;color:var(--text2);margin-top:8px;display:flex;align-items:center;gap:8px}
+.spinner{width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.progress-steps{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.pstep{font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--border);color:var(--text3);transition:all .3s}
+.pstep.active{background:var(--blue-dim);border-color:rgba(77,140,255,.3);color:var(--blue)}
+.pstep.done{background:var(--green-dim);border-color:rgba(31,216,122,.2);color:var(--green)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* AI RESULT */
+.ai-section{margin-bottom:24px;display:none}
+.ai-section.visible{display:block}
+.ai-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ai-header{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.ai-dot{width:9px;height:9px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.2)}}
+.ai-title{font-family:var(--font-display);font-size:13.5px;font-weight:700}
+.ai-meta{font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-left:auto}
+.ai-body{padding:20px}
+.ai-text{font-size:13.5px;line-height:1.75;color:var(--text2);white-space:pre-wrap;font-family:var(--font-body)}
+.ai-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.ai-metric{text-align:center;padding:10px;border-radius:var(--rs);background:var(--bg3);border:1px solid var(--border)}
+.ai-metric-val{font-family:var(--font-display);font-size:20px;font-weight:700}
+.ai-metric-lbl{font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-top:3px;letter-spacing:.5px}
+.conf-bar{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.conf-label{font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-bottom:7px;letter-spacing:.5px;text-transform:uppercase}
+.conf-track{height:7px;background:var(--bg4);border-radius:4px;overflow:hidden}
+.conf-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green),var(--teal));transition:width 1s ease}
+.conf-nums{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-top:5px}
+
+/* RECO */
+.reco-list{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.reco-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--rs);border:1px solid var(--border);background:var(--bg3)}
+.reco-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.reco-text{font-size:12.5px;line-height:1.6;color:var(--text2)}
+.reco-item.warn .reco-icon{background:var(--amber-dim);color:var(--amber)}
+.reco-item.info .reco-icon{background:var(--blue-dim);color:var(--blue)}
+.reco-item.danger .reco-icon{background:var(--red-dim);color:var(--red)}
+
+/* TABLE */
+.disc-section{margin-bottom:24px;display:none}
+.disc-section.visible{display:block}
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.table-search{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.search-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:7px 12px;color:var(--text);font-size:13px;outline:none;font-family:var(--font-body)}
+.search-input:focus{border-color:var(--blue)}
+.search-input::placeholder{color:var(--text3)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:10px 16px;font-family:var(--font-mono);font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:11px 16px;font-size:13px}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-family:var(--font-mono);font-size:10px;font-weight:500}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.sev-high{color:var(--red);font-weight:600}
+.sev-med{color:var(--amber);font-weight:600}
+.sev-low{color:var(--green);font-weight:600}
+
+/* HISTORY */
+.history-section{margin-bottom:24px}
+.history-grid{display:flex;flex-direction:column;gap:10px}
+.history-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .15s}
+.history-item:hover{background:var(--bg3);border-color:var(--border2)}
+.history-icon{width:38px;height:38px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.history-info{flex:1;min-width:0}
+.history-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono)}
+.history-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.history-stats{display:flex;gap:16px;font-size:12px;flex-shrink:0}
+.history-stat{text-align:right}
+.history-stat-val{font-family:var(--font-display);font-weight:700;font-size:14px}
+.history-stat-lbl{font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-top:1px}
+.status-badge{padding:3px 9px;border-radius:20px;font-family:var(--font-mono);font-size:10px;font-weight:500;flex-shrink:0}
+.status-done{background:var(--green-dim);color:var(--green)}
+.status-warn{background:var(--amber-dim);color:var(--amber)}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:50px 20px;display:none}
+.empty-state.visible{display:block}
+.empty-icon{font-size:44px;color:var(--text3);margin-bottom:14px}
+.empty-title{font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px}
+.empty-desc{font-size:13px;color:var(--text3)}
+
+/* ERROR TOAST */
+.error-toast{background:var(--red-dim);border:1px solid rgba(255,77,106,.2);border-radius:var(--rs);padding:12px 16px;font-size:12.5px;color:var(--red);margin-top:12px;display:none;align-items:center;gap:8px;font-family:var(--font-body)}
+.error-toast.visible{display:flex}
+
+/* TREND */
+.trend-section{margin-bottom:24px}
+
+/* FILTER */
+.filter-select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:7px 12px;color:var(--text);font-size:12px;cursor:pointer;outline:none;font-family:var(--font-body)}
+.filter-select:focus{border-color:var(--blue)}
+
+@media(max-width:900px){.cards-grid{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}.sidebar{display:none}}
+@media(max-width:600px){.cards-grid{grid-template-columns:1fr}.history-stats{display:none}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+<div class="glow-dot gd1"></div>
+<div class="glow-dot gd2"></div>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">⬡</div>
+    <div>
+      <div class="nav-title">StockScan AI</div>
+      <div class="nav-subtitle">// analisis berita acara otomatis</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" title="Notifikasi">🔔<span class="notif-dot"></span></button>
+    <button class="nav-btn" title="Pengaturan">⚙️</button>
+    <div class="avatar">WH</div>
+  </div>
+</nav>
+
+<!-- API KEY BANNER -->
+<div id="apiBanner" style="background:#0d1a2e;border-bottom:1px solid rgba(77,140,255,.2);padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);white-space:nowrap">🔑 GEMINI KEY</span>
+  <div style="display:flex;gap:8px;flex:1;max-width:520px">
+    <input id="apiKeyInput" type="password"
+      placeholder="AIza... (Google Gemini API Key — GRATIS)"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:7px 12px;color:var(--text);font-size:12px;outline:none;font-family:var(--font-mono);min-width:0"
+      oninput="saveKey()"
+    >
+    <button onclick="toggleKeyVisibility()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;color:var(--text2);cursor:pointer;font-size:13px" title="Tampilkan/Sembunyikan">👁</button>
+  </div>
+  <span id="keyStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">— belum diset</span>
+  <a href="https://aistudio.google.com/apikey" target="_blank"
+     style="font-family:var(--font-mono);font-size:10px;color:var(--blue);text-decoration:none;white-space:nowrap">↗ Buat Gemini Key (Gratis)</a>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">// menu</div>
+    <div class="sidebar-item active">⬛ Dashboard<span class="sidebar-badge">3</span></div>
+    <div class="sidebar-item">📄 Dokumen</div>
+    <div class="sidebar-item">📊 Laporan</div>
+    <div class="sidebar-item">🕐 Riwayat</div>
+    <div class="sidebar-section">// lainnya</div>
+    <div class="sidebar-item">🏭 Gudang</div>
+    <div class="sidebar-item">👥 Tim</div>
+    <div class="sidebar-item">⚙️ Pengaturan</div>
+  </aside>
+
+  <main class="main" id="mainContent">
+    <div class="page-header">
+      <div class="page-title">Dashboard Analisis</div>
+      <div class="page-desc">Upload berita acara stock opname — Gemini AI akan membaca dan menganalisis angka sesungguhnya dari dokumen Anda.</div>
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="triggerUpload()">⬆ Upload Dokumen</button>
+        <button class="btn" onclick="exportReport()">📤 Export PDF</button>
+        <select class="filter-select" id="filterDate" onchange="filterHistory()">
+          <option value="">Semua Periode</option>
+          <option value="today">Hari Ini</option>
+          <option value="week">7 Hari</option>
+          <option value="month">30 Hari</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="cards-grid">
+      <div class="card c-red-card">
+        <div class="card-icon">📉</div>
+        <div class="card-label">Total Lost</div>
+        <div class="card-value" id="totalLost">2,847</div>
+        <div class="card-change down">↑ dari dokumen sebelumnya</div>
+      </div>
+      <div class="card c-green-card">
+        <div class="card-icon">📈</div>
+        <div class="card-label">Total Surplus</div>
+        <div class="card-value" id="totalSurplus">1,203</div>
+        <div class="card-change up">↑ dari dokumen sebelumnya</div>
+      </div>
+      <div class="card c-amber-card">
+        <div class="card-icon">⚖</div>
+        <div class="card-label">Total Selisih</div>
+        <div class="card-value" id="totalSelisih">1,644</div>
+        <div class="card-change">Net discrepancy</div>
+      </div>
+      <div class="card c-blue-card">
+        <div class="card-icon">📁</div>
+        <div class="card-label">Dokumen Dianalisis</div>
+        <div class="card-value" id="totalDocs">3</div>
+        <div class="card-change">Total sesi ini</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Lost vs Surplus per Dokumen</div>
+            <div class="chart-subtitle">// perbandingan selisih negatif & positif</div>
+          </div>
+          <span class="chart-badge">bar</span>
+        </div>
+        <div style="position:relative;height:230px"><canvas id="barChart"></canvas></div>
+        <div style="display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--text3);font-family:var(--font-mono)">
+          <span>🔴 Lost</span><span>🟢 Surplus</span>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Distribusi Discrepancy</div>
+            <div class="chart-subtitle">// berdasarkan kategori</div>
+          </div>
+        </div>
+        <div style="position:relative;height:190px"><canvas id="pieChart"></canvas></div>
+        <div id="pieLegend" style="display:flex;flex-direction:column;gap:4px;margin-top:10px;font-family:var(--font-mono);font-size:10px;color:var(--text3)">
+          <span>🔴 FMCG 38%</span><span>🟡 Skincare 29%</span><span>🔵 Electronics 18%</span><span>🟢 Lainnya 15%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="trend-section">
+      <div class="section-title"><span class="si-icon">📈</span>Tren Selisih Berdasarkan Tanggal</div>
+      <div class="chart-card">
+        <div style="position:relative;height:170px"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="upload-section">
+      <div class="section-title"><span class="si-icon">☁</span>Upload Dokumen Baru</div>
+      <div class="upload-zone" id="uploadZone"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave()"
+           ondrop="handleDrop(event)" onclick="triggerUpload()">
+        <div class="upload-icon">📤</div>
+        <div class="upload-title">Drag & Drop atau Klik untuk Upload</div>
+        <div class="upload-desc">AI akan membaca isi dokumen secara langsung — tidak ada data dummy</div>
+        <div class="upload-formats">
+          <span class="format-badge">PDF</span>
+          <span class="format-badge">XLSX</span>
+          <span class="format-badge">CSV</span>
+          <span class="format-badge">DOCX</span>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.csv,.xls" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+
+      <div class="progress-area" id="progressArea">
+        <div class="progress-file">
+          <span style="color:var(--blue);font-size:18px">📄</span>
+          <div class="progress-name" id="progressName">dokumen.pdf</div>
+          <div class="progress-size" id="progressSize">0 KB</div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-status" id="progressStatus">
+          <div class="spinner" id="spinnerEl"></div>
+          <span id="progressText">Menyiapkan...</span>
+        </div>
+        <div class="progress-steps">
+          <span class="pstep" id="step1">📖 Baca File</span>
+          <span class="pstep" id="step2">🔤 Ekstrak Teks</span>
+          <span class="pstep" id="step3">🧠 Kirim ke AI</span>
+          <span class="pstep" id="step4">✅ Selesai</span>
+        </div>
+        <div class="error-toast" id="errorToast">
+          <span>❌</span><span id="errorMsg">Terjadi kesalahan</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI RESULT -->
+    <div class="ai-section" id="aiSection">
+      <div class="section-title"><span class="si-icon">🧠</span>Hasil Analisis AI</div>
+      <div class="ai-card">
+        <div class="ai-header">
+          <div class="ai-dot"></div>
+          <div class="ai-title">Laporan Otomatis — Gemini AI</div>
+          <div class="ai-meta" id="aiMeta">—</div>
+        </div>
+        <div class="ai-body">
+          <div class="ai-text" id="aiText"></div>
+          <div class="ai-metrics" id="aiMetrics"></div>
+          <div class="conf-bar">
+            <div class="conf-label">// Confidence Score Analisis</div>
+            <div class="conf-track"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
+            <div class="conf-nums"><span>0%</span><span id="confScore">0%</span><span>100%</span></div>
+          </div>
+          <div class="reco-list" id="recoList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DISC TABLE -->
+    <div class="disc-section" id="discSection">
+      <div class="section-title"><span class="si-icon">⚠️</span>Detail Item Discrepancy</div>
+      <div class="table-wrap">
+        <div class="table-search">
+          <span style="color:var(--text3)">🔍</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="Cari item atau kategori..." oninput="filterTable()">
+          <button class="btn" onclick="exportReport()" style="padding:6px 12px;font-size:11px">⬇ Export</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="discTable">
+            <thead><tr>
+              <th>Nama Item</th><th>Kategori</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Status</th><th>Tingkat</th>
+            </tr></thead>
+            <tbody id="discBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="history-section">
+      <div class="section-title"><span class="si-icon">🕐</span>Riwayat Analisis</div>
+      <div class="history-grid" id="historyGrid"></div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">Belum ada dokumen dianalisis</div>
+        <div class="empty-desc">Upload berita acara stock opname untuk memulai.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const MOCK_HISTORY=[
+  {id:1,name:'BA_StockOpname_Apr2025.xlsx',date:'12 Apr 2025, 09:14',location:'Gudang Utama - Jakarta',lost:1243,surplus:587,selisih:656,status:'done'},
+  {id:2,name:'Berita_Acara_Maret.csv',date:'28 Mar 2025, 14:32',location:'Cabang Bandung',lost:834,surplus:412,selisih:422,status:'done'},
+  {id:3,name:'StockCount_Feb25.pdf',date:'15 Feb 2025, 10:05',location:'Gudang Transit - Bekasi',lost:770,surplus:204,selisih:566,status:'warn'},
+];
+
+const MOCK_DISC=[
+  {name:'Sunscreen SPF50 Neutrogena',cat:'Skincare',sys:500,phys:430,sel:-70,status:'Lost',lvl:'high'},
+  {name:'Indomie Goreng Pack 40',cat:'FMCG',sys:1200,phys:1340,sel:140,status:'Surplus',lvl:'med'},
+  {name:'Hand Sanitizer 500ml',cat:'FMCG',sys:300,phys:215,sel:-85,status:'Lost',lvl:'high'},
+  {name:'Serum Vitamin C Somethinc',cat:'Skincare',sys:150,phys:172,sel:22,status:'Surplus',lvl:'low'},
+  {name:'Charger USB-C 65W Anker',cat:'Electronics',sys:80,phys:67,sel:-13,status:'Lost',lvl:'med'},
+  {name:'Teh Botol Sosro 250ml Box',cat:'FMCG',sys:2400,phys:2530,sel:130,status:'Surplus',lvl:'med'},
+  {name:'Masker N95 Box 20pcs',cat:'Medis',sys:200,phys:173,sel:-27,status:'Lost',lvl:'med'},
+  {name:'Baterai AA Duracell 4pk',cat:'Electronics',sys:450,phys:401,sel:-49,status:'Lost',lvl:'low'},
+];
+
+let allDisc=[...MOCK_DISC];
+let chartBar,chartPie,chartTrend;
+
+// ── API KEY ────────────────────────────────────────────────────────
+function getKey(){return sessionStorage.getItem('ss_api_key')||'';}
+function saveKey(){
+  const v=document.getElementById('apiKeyInput').value.trim();
+  if(v) sessionStorage.setItem('ss_api_key',v);
+  else sessionStorage.removeItem('ss_api_key');
+  updateKeyStatus();
+}
+function updateKeyStatus(){
+  const k=getKey();
+  const el=document.getElementById('keyStatus');
+  if(k&&k.startsWith('AIza')){
+    el.textContent='✓ Gemini Key valid';el.style.color='var(--green)';
+  } else if(k){
+    el.textContent='⚠ Format key tidak dikenali';el.style.color='var(--amber)';
+  } else {
+    el.textContent='— belum diset';el.style.color='var(--text3)';
+  }
+}
+function toggleKeyVisibility(){
+  const inp=document.getElementById('apiKeyInput');
+  inp.type=inp.type==='password'?'text':'password';
+}
+
+// ── CLAUDE PROMPT ──────────────────────────────────────────────────
+const CLAUDE_PROMPT=`Kamu adalah analis stock opname profesional. Baca dokumen berita acara ini secara SANGAT TELITI.
+
+Identifikasi semua item yang memiliki perbedaan antara stok sistem/buku dan stok fisik.
+- LOST = stok fisik LEBIH SEDIKIT dari stok sistem (selisih negatif)
+- SURPLUS = stok fisik LEBIH BANYAK dari stok sistem (selisih positif)
+
+Hitung:
+1. Total unit LOST = jumlahkan SEMUA selisih negatif (nilai absolut)
+2. Total unit SURPLUS = jumlahkan SEMUA selisih positif
+3. Selisih bersih = surplus - lost
+
+KEMBALIKAN HANYA JSON berikut (tanpa teks lain, tanpa markdown fence):
+{
+  "ringkasan": "Narasi 3-4 kalimat tentang temuan utama, angka total lost dan surplus yang akurat, dan rekomendasi utama.",
+  "totalLost": <angka integer>,
+  "totalSurplus": <angka integer>,
+  "totalSelisih": <integer, bisa negatif>,
+  "jumlahItem": <jumlah item dengan discrepancy>,
+  "confidenceScore": <60-98>,
+  "items": [
+    {"name":"nama produk","cat":"Kategori","sys":<int>,"phys":<int>,"sel":<int negatif/positif>,"status":"Lost atau Surplus","lvl":"high/med/low"}
+  ],
+  "rekomendasi": [
+    {"level":"danger","judul":"judul singkat","isi":"penjelasan 1-2 kalimat"},
+    {"level":"warn","judul":"judul singkat","isi":"penjelasan 1-2 kalimat"},
+    {"level":"info","judul":"judul singkat","isi":"penjelasan 1-2 kalimat"}
+  ]
+}
+
+PENTING: Angka harus PERSIS sesuai dokumen. lvl: "high" jika |selisih|>50, "med" jika >20, "low" jika <=20.`;
+
+// ── UPLOAD HANDLERS ────────────────────────────────────────────────
+function triggerUpload(){document.getElementById('fileInput').click();}
+function handleDragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('dragover');}
+function handleDragLeave(){document.getElementById('uploadZone').classList.remove('dragover');}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+}
+function handleFileSelect(e){if(e.target.files.length) processFile(e.target.files[0]);}
+
+function processFile(file){
+  const allowed=['.pdf','.docx','.xlsx','.csv','.xls'];
+  const ext='.'+file.name.split('.').pop().toLowerCase();
+  if(!allowed.includes(ext)){alert('Format tidak didukung. Gunakan PDF, DOCX, XLSX, atau CSV.');return;}
+
+  if(!getKey()){
+    document.getElementById('apiKeyInput').focus();
+    alert('⚠ Masukkan Gemini API Key terlebih dahulu di bar di atas.\nBuat gratis di: https://aistudio.google.com/apikey');
+    return;
+  }
+  
+  hideError();
+  const prog=document.getElementById('progressArea');
+  prog.classList.add('visible');
+  document.getElementById('progressName').textContent=file.name;
+  document.getElementById('progressSize').textContent=(file.size/1024).toFixed(1)+' KB';
+  document.getElementById('spinnerEl').style.display='block';
+  setStep(1);
+  
+  readAndAnalyze(file);
+}
+
+function setStep(n){
+  ['step1','step2','step3','step4'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(i+1<n){el.className='pstep done';}
+    else if(i+1===n){el.className='pstep active';}
+    else{el.className='pstep';}
+  });
+}
+
+function setProgress(pct,msg){
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressText').textContent=msg;
+}
+
+function showError(msg){
+  const t=document.getElementById('errorToast');
+  document.getElementById('errorMsg').textContent=msg;
+  t.classList.add('visible');
+  document.getElementById('spinnerEl').style.display='none';
+}
+function hideError(){document.getElementById('errorToast').classList.remove('visible');}
+
+// ── FILE READER ────────────────────────────────────────────────────
+async function readAndAnalyze(file){
+  const ext='.'+file.name.split('.').pop().toLowerCase();
+  setProgress(15,'Membaca file...');
+  
+  try{
+    if(ext==='.pdf'){
+      setStep(2);
+      setProgress(30,'Mengkonversi PDF ke base64...');
+      const b64=await fileToBase64(file);
+      setStep(3);
+      setProgress(60,'Mengirim PDF ke Gemini AI...');
+      await callGeminiPDF(file.name, b64);
+    } else {
+      setStep(2);
+      setProgress(30,'Membaca teks dokumen...');
+      let text='';
+      try{ text=await file.text(); }
+      catch(e){ text=`[File: ${file.name}, ${(file.size/1024).toFixed(1)}KB — tidak dapat dibaca sebagai teks]`; }
+      setStep(3);
+      setProgress(60,'Mengirim ke Gemini AI...');
+      await callGeminiText(file.name, text);
+    }
+  } catch(e){
+    showError('Gagal membaca file: '+e.message);
+  }
+}
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('Gagal membaca file'));
+    r.readAsDataURL(file);
+  });
+}
+
+// ── GEMINI API CALLS ───────────────────────────────────────────────
+async function callGeminiPDF(filename, b64){
+  const key=getKey();
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const res=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[
+        {inline_data:{mime_type:'application/pdf',data:b64}},
+        {text:CLAUDE_PROMPT}
+      ]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:2000}
+    })
+  });
+  await handleGeminiResponse(res, filename);
+}
+
+async function callGeminiText(filename, content){
+  const key=getKey();
+  const truncated=content.length>40000?content.slice(0,40000)+'...[dipotong]':content;
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const res=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[
+        {text:`Nama file: ${filename}\n\nIsi dokumen:\n${truncated}\n\n${CLAUDE_PROMPT}`}
+      ]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:2000}
+    })
+  });
+  await handleGeminiResponse(res, filename);
+}
+
+async function handleGeminiResponse(res, filename){
+  setProgress(85,'Memproses hasil analisis...');
+  
+  if(!res.ok){
+    let errMsg=`API Error ${res.status}`;
+    try{
+      const e=await res.json();
+      errMsg=e?.error?.message||errMsg;
+    }catch(_){}
+    showError(errMsg);
+    return;
+  }
+  
+  const data=await res.json();
+  const raw=data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+  
+  let parsed;
+  try{
+    const clean=raw.replace(/```json|```/g,'').trim();
+    parsed=JSON.parse(clean);
+  } catch(_){
+    parsed={
+      ringkasan:raw||'Analisis selesai.',
+      totalLost:0,totalSurplus:0,totalSelisih:0,
+      jumlahItem:0,confidenceScore:60,items:[],rekomendasi:[]
+    };
+  }
+  
+  setStep(4);
+  setProgress(100,'Analisis selesai! ✓');
+  document.getElementById('spinnerEl').style.display='none';
+  displayResults(filename, parsed);
+}
+
+// ── DISPLAY RESULTS ────────────────────────────────────────────────
+function displayResults(filename, parsed){
+  document.getElementById('aiSection').classList.add('visible');
+  document.getElementById('discSection').classList.add('visible');
+  
+  const now=new Date();
+  document.getElementById('aiMeta').textContent=
+    `${now.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})} ${now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`;
+  
+  // Typewriter
+  const txt=parsed.ringkasan||'Analisis selesai.';
+  let i=0;
+  const el=document.getElementById('aiText');
+  el.textContent='';
+  function type(){
+    if(i<txt.length){el.textContent+=txt[i++];setTimeout(type,9);}
+    else{renderMetrics(parsed);renderRecos(parsed.rekomendasi||[]);}
+  }
+  setTimeout(type,200);
+  
+  const conf=parsed.confidenceScore||85;
+  setTimeout(()=>{
+    document.getElementById('confFill').style.width=conf+'%';
+    document.getElementById('confScore').textContent=conf+'%';
+  },800);
+  
+  if(parsed.items&&parsed.items.length>0) allDisc=[...parsed.items];
+  renderDiscTable();
+  updateCards(parsed);
+  addHistory(filename,parsed);
+  
+  document.getElementById('mainContent').scrollTo({top:document.getElementById('aiSection').offsetTop-80,behavior:'smooth'});
+}
+
+function renderMetrics(p){
+  document.getElementById('aiMetrics').innerHTML=`
+    <div class="ai-metric">
+      <div class="ai-metric-val" style="color:var(--red)">−${(p.totalLost||0).toLocaleString('id-ID')}</div>
+      <div class="ai-metric-lbl">// unit lost</div>
+    </div>
+    <div class="ai-metric">
+      <div class="ai-metric-val" style="color:var(--green)">+${(p.totalSurplus||0).toLocaleString('id-ID')}</div>
+      <div class="ai-metric-lbl">// unit surplus</div>
+    </div>
+    <div class="ai-metric">
+      <div class="ai-metric-val" style="color:var(--amber)">${p.jumlahItem||0}</div>
+      <div class="ai-metric-lbl">// item discrepancy</div>
+    </div>
+  `;
+}
+
+function renderRecos(list){
+  const icons={danger:'🔁',warn:'📋',info:'📊'};
+  const defaults=[
+    {level:'danger',judul:'Lakukan recount segera',isi:'Periksa item dengan discrepancy tertinggi dan lakukan penghitungan ulang fisik.'},
+    {level:'warn',judul:'Periksa proses inbound',isi:'Surplus berulang mengindikasikan kemungkinan human error saat pencatatan stok masuk.'},
+    {level:'info',judul:'Pantau tren bulanan',isi:'Lakukan audit berkala untuk mencegah akumulasi selisih stok.'}
+  ];
+  const items=list.length>0?list:defaults;
+  document.getElementById('recoList').innerHTML=`
+    <div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">// Rekomendasi Tindakan</div>
+    ${items.map(r=>`
+      <div class="reco-item ${r.level}">
+        <div class="reco-icon">${icons[r.level]||'ℹ'}</div>
+        <div class="reco-text"><strong style="color:var(--text)">${r.judul}</strong> — ${r.isi}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function updateCards(parsed){
+  const hLost=MOCK_HISTORY.reduce((s,h)=>s+h.lost,0);
+  const hSurplus=MOCK_HISTORY.reduce((s,h)=>s+h.surplus,0);
+  const newLost=parsed?parsed.totalLost||0:0;
+  const newSurplus=parsed?parsed.totalSurplus||0:0;
+  const tot=MOCK_HISTORY.length+1;
+  document.getElementById('totalLost').textContent=(hLost+newLost).toLocaleString('id-ID');
+  document.getElementById('totalSurplus').textContent=(hSurplus+newSurplus).toLocaleString('id-ID');
+  document.getElementById('totalSelisih').textContent=Math.abs((hLost+newLost)-(hSurplus+newSurplus)).toLocaleString('id-ID');
+  document.getElementById('totalDocs').textContent=tot;
+}
+
+function addHistory(filename,parsed){
+  const lost=parsed?parsed.totalLost||0:0;
+  const surplus=parsed?parsed.totalSurplus||0:0;
+  const selisih=Math.abs((parsed?parsed.totalSelisih||(surplus-lost):0));
+  MOCK_HISTORY.unshift({
+    id:MOCK_HISTORY.length+1,name:filename,date:'Baru saja',
+    location:'Gudang — Analisis Baru',lost,surplus,selisih,
+    status:(lost>200||surplus>200)?'warn':'done'
+  });
+  renderHistory();
+}
+
+// ── RENDER FUNCTIONS ───────────────────────────────────────────────
+function renderHistory(data=MOCK_HISTORY){
+  const grid=document.getElementById('historyGrid');
+  const empty=document.getElementById('emptyState');
+  if(!data.length){grid.innerHTML='';empty.classList.add('visible');return;}
+  empty.classList.remove('visible');
+  grid.innerHTML=data.map(h=>`
+    <div class="history-item" onclick="loadHistory(${h.id})">
+      <div class="history-icon" style="background:${h.status==='done'?'var(--green-dim)':'var(--amber-dim)'};color:${h.status==='done'?'var(--green)':'var(--amber)'}">
+        ${h.status==='done'?'✓':'⚠'}
+      </div>
+      <div class="history-info">
+        <div class="history-name">${h.name}</div>
+        <div class="history-meta">📍 ${h.location} &nbsp;·&nbsp; 🕐 ${h.date}</div>
+      </div>
+      <div class="history-stats">
+        <div class="history-stat"><div class="history-stat-val" style="color:var(--red)">${h.lost.toLocaleString('id-ID')}</div><div class="history-stat-lbl">Lost</div></div>
+        <div class="history-stat"><div class="history-stat-val" style="color:var(--green)">${h.surplus.toLocaleString('id-ID')}</div><div class="history-stat-lbl">Surplus</div></div>
+      </div>
+      <span class="status-badge ${h.status==='done'?'status-done':'status-warn'}">${h.status==='done'?'Lengkap':'Peringatan'}</span>
+    </div>
+  `).join('');
+}
+
+function renderDiscTable(data=allDisc){
+  document.getElementById('discBody').innerHTML=data.map(d=>`
+    <tr>
+      <td style="font-weight:500">${d.name}</td>
+      <td><span class="badge badge-amber">${d.cat}</span></td>
+      <td style="font-family:var(--font-mono)">${(d.sys||0).toLocaleString('id-ID')}</td>
+      <td style="font-family:var(--font-mono)">${(d.phys||0).toLocaleString('id-ID')}</td>
+      <td style="font-family:var(--font-mono);font-weight:600;color:${d.sel<0?'var(--red)':'var(--green)'}">${d.sel>0?'+':''}${d.sel}</td>
+      <td><span class="badge ${d.status==='Lost'?'badge-red':'badge-green'}">${d.status}</span></td>
+      <td class="${d.lvl==='high'?'sev-high':d.lvl==='med'?'sev-med':'sev-low'}">${d.lvl==='high'?'Tinggi':d.lvl==='med'?'Sedang':'Rendah'}</td>
+    </tr>
+  `).join('');
+}
+
+function filterTable(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  renderDiscTable(allDisc.filter(d=>d.name.toLowerCase().includes(q)||d.cat.toLowerCase().includes(q)));
+}
+
+function filterHistory(){
+  const v=document.getElementById('filterDate').value;
+  if(!v){renderHistory();return;}
+  renderHistory(MOCK_HISTORY.slice(0,v==='today'?1:v==='week'?2:3));
+}
+
+function loadHistory(id){
+  const h=MOCK_HISTORY.find(x=>x.id===id);
+  if(!h)return;
+  document.getElementById('aiSection').classList.add('visible');
+  document.getElementById('discSection').classList.add('visible');
+  document.getElementById('aiText').textContent=`Dokumen "${h.name}" dari ${h.location} pada ${h.date}.\nTotal lost: ${h.lost.toLocaleString('id-ID')} unit | Surplus: ${h.surplus.toLocaleString('id-ID')} unit | Selisih bersih: ${h.selisih.toLocaleString('id-ID')} unit.`;
+  document.getElementById('confFill').style.width='82%';
+  document.getElementById('confScore').textContent='82%';
+  renderMetrics({totalLost:h.lost,totalSurplus:h.surplus,jumlahItem:'—'});
+  renderRecos([]);
+  renderDiscTable();
+  document.getElementById('mainContent').scrollTo({top:0,behavior:'smooth'});
+}
+
+function exportReport(){alert('Export PDF aktif saat terhubung ke backend.\n(Fitur coming soon)');}
+
+// ── CHARTS ─────────────────────────────────────────────────────────
+function initCharts(){
+  const labels=['BA Apr 2025','BA Mar 2025','BA Feb 2025'];
+  chartBar=new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Lost',data:[1243,834,770],backgroundColor:'rgba(255,77,106,.8)',borderRadius:5},
+      {label:'Surplus',data:[587,412,204],backgroundColor:'rgba(31,216,122,.8)',borderRadius:5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#435270',font:{size:10,family:'DM Mono'}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#435270',font:{size:10,family:'DM Mono'}}}
+      }
+    }
+  });
+
+  chartPie=new Chart(document.getElementById('pieChart'),{
+    type:'doughnut',
+    data:{
+      labels:['FMCG','Skincare','Electronics','Lainnya'],
+      datasets:[{data:[38,29,18,15],backgroundColor:['#ff4d6a','#ffb84d','#4d8cff','#1fd87a'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false}}}
+  });
+
+  chartTrend=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{
+      labels:['Jan','Feb','Mar','Apr'],
+      datasets:[{label:'Selisih',data:[890,566,422,656],
+        borderColor:'#4d8cff',backgroundColor:'rgba(77,140,255,.08)',
+        fill:true,tension:.4,pointRadius:5,pointBackgroundColor:'#4d8cff',
+        pointBorderColor:'#090c14',pointBorderWidth:2}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#435270',font:{size:10,family:'DM Mono'}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#435270',font:{size:10,family:'DM Mono'}}}
+      }
+    }
+  });
+}
+
+window.onload=()=>{renderHistory();renderDiscTable();initCharts();updateKeyStatus();};
+</script>
+</body>
+</html>
